@@ -140,7 +140,7 @@ if __name__ == '__main__':
         # Initialize the undetected_chromedriver and run the main function
         options = Options()
         options.add_argument('-start-maximized')
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
         output_df = main(driver, input_df)
         driver.quit()
         
