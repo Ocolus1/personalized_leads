@@ -138,9 +138,12 @@ if __name__ == '__main__':
         st.write(input_df.head())
         
         # Initialize the undetected_chromedriver and run the main function
-        driver = webdriver.Chrome(ChromeDriverManager().install())
-        output_df = main(driver, input_df)
-        driver.quit()
+        options = Options()
+        options.add_argument('-start-maximized')
+
+        with webdriver.Chrome(ChromeDriverManager().install(), options=options) as driver:
+            output_df = main(driver, input_df)
+            driver.quit()
         
         # Show the first five rows of the result and provide download link
         st.write('Processed DataFrame:')
