@@ -12,7 +12,7 @@ import base64
 import os
 
 # Set up the OpenAI API key
-openai.api_key = os.environ("OPENAI_KEY")
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Function to check if a string is gibberish
 def is_gibberish(name):
