@@ -141,7 +141,6 @@ if __name__ == '__main__':
         options = uc.ChromeOptions()
         options.headless=True
         options.add_argument('--headless')
-        uc.install()
         driver = uc.Chrome(options=options)
         output_df = main(driver, input_df)
         driver.quit()
