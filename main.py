@@ -142,6 +142,8 @@ if __name__ == '__main__':
         options.headless=True
         options.add_argument('--headless')
         driver = uc.Chrome(options=options)
+        output_df = main(driver, input_df)
+        driver.quit()
         
         # Show the first five rows of the result and provide download link
         st.write('Processed DataFrame:')
