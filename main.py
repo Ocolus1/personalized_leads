@@ -41,114 +41,126 @@ def scrape_website_info(driver, url):
     except Exception as e:
         print(f"Error scraping {url}: {str(e)}")
         return None, None
-    
+
+# Template for LinkedIn scraping logic
+def scrape_linkedin_info(driver, url):
+    try:
+        driver.get(url)
+        soup = BeautifulSoup(driver.page_source, 'html.parser')
+        # Extract relevant information from LinkedIn Profile
+        # The actual tags and classes would depend on LinkedIn's current page structure
+        # Return the scraped information
+        
+    except Exception as e:
+        print(f"Error scraping LinkedIn {url}: {str(e)}")
+        return None
 
 # Function to send prompt to GPT and get a response
-def get_gpt_response(meta_description, page_title, company_name):
+def get_gpt_response(meta_description, page_title, company_name, campaign, offer, industry):
     prompt = f"""
+    Generate a personalized one sentence message for the person based on this information on their website.
+    Find something unique from the info above. We are doing a {campaign} {industry} campaign,
+    and the intention is to be very informal, like an old friend calling up to see something interesting
+    and unique from their info, and using that to connect back to what we're offering to get them on a call with us.
+    We are offering {offer}.
     [Meta Description: {meta_description}]
     [Page Title: {page_title}]
-    
-    Generate a personalized one-line sentence to approach a potential client based on the given Meta Description and Page Title for the company {company_name}.
+    [Company Name: {company_name}]
     """
-    
     try:
         # Make an API call to OpenAI to get a response
         response = openai.Completion.create(
-            engine="text-davinci-003",  # You can use "davinci" for GPT-3 or the equivalent for GPT-4
+            engine="text-davinci-003",  
             prompt=prompt,
             temperature=0.6,
             max_tokens=100,
         )
         
-        # Extract and return the response text
+        # Extract and return the response
         return response.choices[0].text.strip()
     
     except Exception as e:
         print(f"Error getting response from GPT: {str(e)}")
         return None
 
-
-
-
-def main(driver, df):
-    # Load the CSV file into a DataFrame
-    # file_path = 'wer.csv'
-    # df = pd.read_csv(file_path)
-
-    # Define a pattern to identify rows where email contains the word "test"
-    pattern_test = re.compile(r'\btest\b', re.IGNORECASE)
-
-    # Clean the DataFrame
-    cleaned_df = df.dropna(subset=['email', 'website'], how='any')
-    cleaned_df = cleaned_df[~cleaned_df['email'].str.contains(pattern_test)]
-    cleaned_df = cleaned_df[~cleaned_df['companyName'].apply(is_gibberish)]
-
+def main():
+    st.title('Personalized Leads Generator')
     
-    try :
-        # Initialize new columns for Meta Description, Page Title, and Personalization
-        cleaned_df['personalization'] = None
-        
-        # Initialize the progress bar
-        progress = st.progress(0)
-        total = len(cleaned_df.index)
-
-        # Loop through the cleaned DataFrame and scrape website information
-        for index, row in cleaned_df.iterrows():
-            url = row['website']
-            print(f"Getting the {index} url : {url}")
-            meta_description, page_title = scrape_website_info(driver, url)
-            company_name = row['companyName']
-            
-            # Get the personalized line from GPT and store it in the DataFrame
-            personalized_line = get_gpt_response(meta_description, page_title, company_name)
-            if personalized_line:
-                cleaned_df.at[index, 'personalization'] = personalized_line
-                
-            # Update the progress bar
-            progress.progress((index + 1) / total)
-
-        # Save the cleaned DataFrame with scraped information and Personalization to a new CSV file
-        cleaned_df.to_csv('output.csv', index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
-        
-        print("Finished getting all the personalized leads")
-    except Exception as e:
-        print(f"Error : {str(e)}")
-        
-    # Complete the progress bar once scraping is finished
-    progress.progress(total/total)
-        
-    return cleaned_df
-
-
-if __name__ == '__main__':
-    st.title("Website Scraper and Personalizer")
+    # Adding new inputs
+    scrape_source = st.radio('Choose the source to scrape:', ('Website URL', 'LinkedIn'), index=0)
+    campaign = st.radio('What kind of campaign is this?', ('DR', 'cold'))
+    offer = st.text_input('What are you offering?')
+    industry = st.text_input('What industry are you in?')
     
-    # Upload the input CSV file
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv")
+    uploaded_file = st.file_uploader("Upload a CSV file containing company names and their websites", type="csv")
+    
     if uploaded_file is not None:
+        # Load the CSV file
         input_df = pd.read_csv(uploaded_file)
         
         # Drop empty rows and columns
         input_df.dropna(how='all', inplace=True)  # Drop empty rows
         input_df.dropna(axis=1, how='all', inplace=True)  # Drop empty columns
         
-        # Show only the first five rows of the uploaded DataFrame
-        st.write('Uploaded CSV (Empty rows and columns removed):')
-        st.write(input_df.head())
+        # Define a pattern to identify rows where email contains the word "test"
+        pattern_test = re.compile(r'\btest\b', re.IGNORECASE)
+
+        # Clean the DataFrame
+        cleaned_df = input_df.dropna(subset=['email', 'website'], how='any')
+        cleaned_df = cleaned_df[~cleaned_df['email'].str.contains(pattern_test)]
+        cleaned_df = cleaned_df[~cleaned_df['companyName'].apply(is_gibberish)]
         
-        # Initialize the undetected_chromedriver and run the main function
-        options = uc.ChromeOptions()
-        options.headless=True
-        options.add_argument('--headless')
-        driver = uc.Chrome(options=options)
-        output_df = main(driver, input_df)
+        # Initialize new columns for Meta Description, Page Title, and Personalization
+        cleaned_df['personalization'] = None
+        
+        # Initialize the web driver
+        options = Options()
+        options.add_argument("--headless")
+        driver = uc.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+        
+        progress = st.progress(0)
+        total = len(cleaned_df.index)
+        
+        # Iterate over the rows of the dataframe and scrape information
+        for index, row in cleaned_df.iterrows():
+            print(f"Getting the link of {index} item")
+            # Update the progress bar
+            progress.progress((index + 1) / total)
+            
+            
+            company_name = row['companyName']
+            url = row['LinkedIn URL'] if scrape_source == "LinkedIn" else row['website']
+            
+            # Scrape information based on user selection
+            if scrape_source == 'LinkedIn':
+                linkedin_info = scrape_linkedin_info(driver, url)
+                message = get_gpt_response(linkedin_info, company_name, campaign, offer, industry)
+            else:
+                meta_description, page_title = scrape_website_info(driver, url)
+                message = get_gpt_response(meta_description, page_title, company_name, campaign, offer, industry)
+                
+            if message:
+                cleaned_df.at[index, 'personalization'] = message
+            
+        
+        # Complete the progress bar once scraping is finished
+        progress.progress(total/total)  
+        
+        # Save the cleaned DataFrame with scraped information and Personalization to a new CSV file
+        cleaned_df.to_csv('output.csv', index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+        
+        print("Finished getting all the personalized leads")
+        
+        # Close the driver
         driver.quit()
         
         # Show the first five rows of the result and provide download link
         st.write('Processed DataFrame:')
-        st.write(output_df.head())
-        csv = output_df.to_csv(index=False)
-        b64 = base64.b64encode(csv.encode()).decode()  
+        st.write(cleaned_df.head())
+        csv_data = cleaned_df.to_csv(index=False)
+        b64 = base64.b64encode(csv_data.encode()).decode()  
         href = f'<a href="data:file/csv;base64,{b64}" download="output.csv">Download Processed CSV File</a>'
         st.markdown(href, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()
