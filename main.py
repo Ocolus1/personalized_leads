@@ -88,9 +88,12 @@ def main():
     
     # Adding new inputs
     scrape_source = st.radio('Choose the source to scrape:', ('Website URL', 'LinkedIn'), index=0)
-    campaign = st.radio('What kind of campaign is this?', ('DR', 'cold'))
+    campaign = st.radio('What kind of campaign is this?', ('Database Reactivation', 'Cold outreach'))
     offer = st.text_input('What are you offering?')
     industry = st.text_input('What industry are you in?')
+    
+    contacts_options = {'All': 'all', 'Half': 'half', '10': 10, '20': 20, '50': 50}
+    contacts_to_personalize = st.radio('How many contacts do you want to personalize for?', list(contacts_options.keys()), key='contacts', horizontal=True)
     
     uploaded_file = st.file_uploader("Upload a CSV file containing company names and their websites", type="csv")
     
@@ -118,12 +121,24 @@ def main():
         options.add_argument("--headless")
         driver = uc.Chrome(executable_path=ChromeDriverManager().install(), options=options)
         
-        progress = st.progress(0)
         total = len(cleaned_df.index)
         
+        # Update total based on user selection
+        if contacts_options[contacts_to_personalize] == 'half':
+            total = total // 2
+        elif contacts_options[contacts_to_personalize].isdigit():
+            total = min(total, int(contacts_options[contacts_to_personalize]))
+
+        
+        progress = st.progress(0)
+        
         # Iterate over the rows of the dataframe and scrape information
-        for index, row in cleaned_df.iterrows():
-            print(f"Getting the link of {index} item")
+        for index, (idx, row) in enumerate(cleaned_df.iterrows()):
+            # Break the loop if index is equal to total
+            if index == total:
+                break
+            
+            print(f"Getting the link of {index} item of {total} items")
             # Update the progress bar
             progress.progress((index + 1) / total)
             
@@ -140,7 +155,7 @@ def main():
                 message = get_gpt_response(meta_description, page_title, company_name, campaign, offer, industry)
                 
             if message:
-                cleaned_df.at[index, 'personalization'] = message
+                cleaned_df.at[idx, 'personalization'] = message
             
         
         # Complete the progress bar once scraping is finished
