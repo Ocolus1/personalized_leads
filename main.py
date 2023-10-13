@@ -47,10 +47,14 @@ def scrape_linkedin_info(driver, url):
     try:
         driver.get(url)
         soup = BeautifulSoup(driver.page_source, 'html.parser')
-        # Extract relevant information from LinkedIn Profile
-        # The actual tags and classes would depend on LinkedIn's current page structure
-        # Return the scraped information
+
+        headline_tag = soup.find('span', {'class': 'break-words'})
         
+        if headline_tag:
+            return headline_tag.text.strip()
+        else:
+            return None
+
     except Exception as e:
         print(f"Error scraping LinkedIn {url}: {str(e)}")
         return None
@@ -144,7 +148,7 @@ def main():
             
             
             company_name = row['companyName']
-            url = row['LinkedIn URL'] if scrape_source == "LinkedIn" else row['website']
+            url = row['linkedin'] if scrape_source == "LinkedIn" else row['website']
             
             # Scrape information based on user selection
             if scrape_source == 'LinkedIn':
