@@ -172,7 +172,7 @@ def main():
             if index == total:
                 break
             
-            print(f"Getting the link of {index} item of {total} items")
+            print(f"Getting the link of {index+1} item of {total} items")
             # Update the progress bar
             progress.progress((index + 1) / total)
             
