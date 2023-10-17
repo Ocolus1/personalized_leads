@@ -86,6 +86,33 @@ def get_gpt_response(meta_description, page_title, company_name, campaign, offer
     except Exception as e:
         print(f"Error getting response from GPT: {str(e)}")
         return None
+    
+# Function to send prompt to GPT and get a response
+def get_gpt_response_linkedin(linkedin_info, company_name, campaign, offer, industry):
+    prompt = f"""
+    Generate a personalized one sentence message for the person based on this information on their website.
+    Find something unique from the info above. We are doing a {campaign} {industry} campaign,
+    and the intention is to be very informal, like an old friend calling up to see something interesting
+    and unique from their info, and using that to connect back to what we're offering to get them on a call with us.
+    We are offering {offer}.
+    [linkedin info: {linkedin_info}]
+    [Company Name: {company_name}]
+    """
+    try:
+        # Make an API call to OpenAI to get a response
+        response = openai.Completion.create(
+            engine="text-davinci-003",  
+            prompt=prompt,
+            temperature=0.6,
+            max_tokens=100,
+        )
+        
+        # Extract and return the response
+        return response.choices[0].text.strip()
+    
+    except Exception as e:
+        print(f"Error getting response from GPT: {str(e)}")
+        return None
 
 def main():
     st.title('Personalized Leads Generator')
@@ -123,7 +150,8 @@ def main():
         # Initialize the web driver
         options = Options()
         options.add_argument("--headless")
-        driver = uc.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+        # driver = uc.Chrome(executable_path=ChromeDriverManager().install(), options=options)
+        driver = uc.Chrome(options=options)
         
         total = len(cleaned_df.index)
         
@@ -135,6 +163,8 @@ def main():
 
         
         progress = st.progress(0)
+
+        processed_rows = []  # List to store the processed rows
         
         # Iterate over the rows of the dataframe and scrape information
         for index, (idx, row) in enumerate(cleaned_df.iterrows()):
@@ -153,20 +183,23 @@ def main():
             # Scrape information based on user selection
             if scrape_source == 'LinkedIn':
                 linkedin_info = scrape_linkedin_info(driver, url)
-                message = get_gpt_response(linkedin_info, company_name, campaign, offer, industry)
+                message = get_gpt_response_linkedin(linkedin_info, company_name, campaign, offer, industry)
             else:
                 meta_description, page_title = scrape_website_info(driver, url)
                 message = get_gpt_response(meta_description, page_title, company_name, campaign, offer, industry)
                 
             if message:
                 cleaned_df.at[idx, 'personalization'] = message
-            
+                processed_rows.append(cleaned_df.loc[idx])
+        
+        # Convert the processed rows list to a DataFrame
+        processed_df = pd.DataFrame(processed_rows)
         
         # Complete the progress bar once scraping is finished
         progress.progress(total/total)  
         
-        # Save the cleaned DataFrame with scraped information and Personalization to a new CSV file
-        cleaned_df.to_csv('output.csv', index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+        # Save the processed DataFrame to a new CSV file
+        processed_df.to_csv('output.csv', index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
         
         print("Finished getting all the personalized leads")
         
